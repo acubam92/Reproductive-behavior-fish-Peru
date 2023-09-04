@@ -1,0 +1,762 @@
+
+#IGS ----------------------------------------------------------------------
+
+#Anomalia por periodo interanual 
+IGS <- read.csv(file = "Data/IGS.csv", stringsAsFactors = FALSE, sep = ";")
+IGS <- IGS[IGS$year > 1991,]
+patronesIGS <- read.csv(file = "data/patrones IGS.csv", stringsAsFactors = FALSE, row.names = 1)
+
+#IGS por periodos
+IGS_92_98 <- IGS[IGS$year < 1999,]
+IGS_99_12 <- IGS[IGS$year < 2013 & IGS$year > 1998,]
+IGS_13_21 <- IGS[IGS$year > 2012,]
+
+#patrones IGS por periodos
+patronIGS_92_98 <- rep(as.numeric(patronesIGS[1,]), length(sort(unique(IGS_92_98$year))))
+patronIGS_99_12 <- rep(as.numeric(patronesIGS[2,]), length(sort(unique(IGS_99_12$year))))
+patronIGS_13_21 <- rep(as.numeric(patronesIGS[3,]), length(sort(unique(IGS_13_21$year))))
+
+#serie de tiempo IGS
+STIGS <- ts(data = IGS$igs, start = 1992, frequency = 12)
+
+#serie de tiempo IGS patrones
+rep_patronesIGS <- c(patronIGS_92_98, patronIGS_99_12, patronIGS_13_21)
+STpatronesIGS <- ts(data = rep_patronesIGS, start = 1992, frequency = 12)
+
+#Calculo de anomalías
+anomaliasIGS <- round((STIGS - STpatronesIGS), 2)
+
+#matrix de IGS
+years_IGS <- sort(unique(IGS$year))
+matrixIGS <- matrix(data = c(as.numeric(anomaliasIGS), rep(NA, length(rep_patronesIGS) - length(STIGS))), 
+                   nrow = length(years_IGS), ncol = 12, byrow = TRUE)
+
+dimnames(matrixIGS) <- list(sort(unique(IGS$year)), month.abb)
+
+# Rangos IGS------------------------------------------------------------------
+
+matrixIGS_92_20 <- matrixIGS[-30,]
+matrixIGS_92_98 <- matrixIGS_92_20[rownames(matrixIGS_92_20) %in% c(1992:1998),]
+matrixIGS_99_12 <- matrixIGS_92_20[rownames(matrixIGS_92_20) %in% c(1999:2012),]
+matrixIGS_13_20 <- matrixIGS_92_20[rownames(matrixIGS_92_20) %in% c(2013:2020),]
+listIGS <- list(matrixIGS_92_98, matrixIGS_99_12, matrixIGS_13_20)
+
+rangosIGS <- list()
+
+for(i in 1:3){
+  anomaliaIGS_year <- listIGS[[i]]
+  anomaliaIGS <- as.data.frame(abs(anomaliaIGS_year))
+  decilesIGS <- NULL
+  for (j in 1:12) {
+    rangoIGS <- round(quantile(anomaliaIGS[,j], probs = c(0.4, 0.8), na.rm = TRUE),1)
+    decilesIGS <- rbind(decilesIGS, rangoIGS)
+    
+  }
+  rangosIGS[[i]] <- decilesIGS
+  row.names(decilesIGS) <- month.abb
+  write.csv(x = decilesIGS, file = paste0("output/deciles IGS ", i, " periodo.csv"))
+}
+
+
+# Fechas ------------------------------------------------------------------
+
+fecha <- read.csv(file = "data/fecha.csv", stringsAsFactors = FALSE, sep = ";")
+fecha <- fecha[fecha$year > 2019,]
+
+# Grafico FD --------------------------------------------------------------
+#IGS 2012 - 2021
+# mes.actual <- 12 #colocar mes del año
+# meses.year <- 12 - mes.actual 
+# length.xlim <- length(matrixFD[rownames(matrixFD) %in% c(2012:2021),]) - meses.year
+anoma.to.use <- matrixIGS[rownames(matrixIGS) %in% c(2012:2021),]
+anoma.to.use.numeric <- as.numeric(t(anoma.to.use))
+# anoma.to.use.numeric <- anoma.to.use.numeric[1:length.xlim]
+
+xlim <- c(1, 120)
+ylim1 <- c(-3, 3)
+
+# repe <- trunc(length.xlim/12)
+
+deciles.use.1 <- rep(decilesIGS[,2], 10)
+deciles.use.2 <- rep(decilesIGS[,1], 10)
+
+
+par(mar = c(4,4,1,1))
+umbral <- 0
+
+plot(1, 1, type = "n", xlim = xlim, ylim = ylim1, xlab = NA, ylab = NA, axes  = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.1, 
+              rev(deciles.use.1*-1)), 
+        col ="grey50", border = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.2, rev(deciles.use.2*-1)), 
+        col ="grey70", border = FALSE)
+
+abline(h = -3:3, v = seq(1,132, 12), lty = "dashed", col = "grey50")
+par(new=TRUE)
+lines(ifelse(anoma.to.use.numeric > 0, anoma.to.use.numeric, NA), type = "h", col = "red", lwd = 3)
+lines(ifelse(anoma.to.use.numeric < 0, anoma.to.use.numeric, NA), type = "h", col = "blue", lwd = 3)
+
+axis(side = 1, at = seq(1,132, 12), labels = 2012:2022, cex.axis = 1.3)
+axis(side = 2, at = -3:3, las = 2, cex.axis = 1.3)
+mtext(text = "Anomalía de IGS", side = 2, line = 2.5, cex = 1.3)
+mtext(text = "Años", side = 1, line = 2.5, cex = 1.3)
+legend("bottomleft", legend = c("Anomalía positiva", "Anomalía negativa", 
+                                "Sin efecto", "Efecto moderado", "Efecto Fuerte"), 
+       fill = c("red", "blue", "grey70", "grey50", "white"), cex = 0.8)
+
+box()
+
+
+dev.copy(png, 
+         filename = paste0("figures/Anomalia IGS_final.png"),
+         width = 2500, height = 1500, res = 300)
+dev.off()
+
+
+#IGS 2020 - 2021
+# mes.actual <- 8 #colocar mes del año
+# meses.year <- 12 - mes.actual 
+# length.xlim <- length(matrixFD[rownames(matrixFD) %in% c(2020:2021),]) - meses.year
+anoma.to.use <- matrixIGS[rownames(matrixIGS) %in% c(2020:2021),]
+anoma.to.use.numeric <- as.numeric(t(anoma.to.use))
+# anoma.to.use.numeric <- anoma.to.use.numeric[1:length.xlim]
+
+xlim <- c(1, 24)
+ylim1 <- c(-3, 3)
+
+# repe <- trunc(length.xlim/12)
+
+deciles.use.1 <- rep(decilesIGS[,2], 2)
+deciles.use.2 <- rep(decilesIGS[,1], 2)
+
+
+par(mar = c(4,4,1,1))
+umbral <- 0
+
+plot(1, 1, type = "n", xlim = xlim, ylim = ylim1, xlab = NA, ylab = NA, axes  = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.1, 
+              rev(deciles.use.1*-1)), 
+        col ="grey50", border = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.2, rev(deciles.use.2*-1)), 
+        col ="grey70", border = FALSE)
+
+abline(h = -3:3, v = seq(1,24, 12), lty = "dashed", col = "grey50")
+par(new=TRUE)
+lines(ifelse(anoma.to.use.numeric > 0, anoma.to.use.numeric, NA), type = "h", col = "red", lwd = 3)
+lines(ifelse(anoma.to.use.numeric < 0, anoma.to.use.numeric, NA), type = "h", col = "blue", lwd = 3)
+
+axis(side = 1, at = 1:24, labels = fecha$label, cex.axis = 1.3)
+axis(side = 2, at = -3:3, las = 2, cex.axis = 1.3)
+mtext(text = "Anomalía de IGS", side = 2, line = 2.5, cex = 1.3)
+mtext(text = "Meses", side = 1, line = 2.5, cex = 1.3)
+legend("top", legend = c("Anomalía positiva", "Anomalía negativa"), 
+       col = c("red", "blue"), cex = 1, lwd = 4, horiz = TRUE)
+legend("bottomleft", legend = c("Sin efecto", "Efecto moderado", "Efecto Fuerte"), 
+       fill = c("grey70", "grey50", "white"), cex = 1)
+
+box()
+
+
+dev.copy(png, 
+         filename = paste0("figures/Anomalia IGS 2020-2021_2.png"),
+         width = 3200, height = 2000, res = 300)
+dev.off()
+
+# Grafico IGS 1992-2020 ----------------------------------------------------
+periodo1_IGS <- 1992:1998
+periodo2_IGS <- 1999:2012
+periodo3_IGS <- 2013:2020
+periodo_IGS <- list(periodo1_IGS, periodo2_IGS, periodo3_IGS)
+
+par(mar = c(1.5,1.5,1,1), mfrow = c(3,1), oma = c(3,3,1,1))
+for (i in 1:3) {
+  anoma.to.use <- matrixIGS[rownames(matrixIGS) %in% periodo_IGS[[i]],]
+  anoma.to.use.numeric <- as.numeric(t(anoma.to.use))
+  
+  xlim <- c(1, length(anoma.to.use.numeric))
+  ylim1 <- c(-3, 3)
+  
+  rangos_use <- rangosIGS[[i]]
+  
+  deciles.use.1 <- rep(rangos_use[,2], length(anoma.to.use.numeric)/12)
+  deciles.use.2 <- rep(rangos_use[,1], length(anoma.to.use.numeric)/12)
+  
+  par(mar = c(4,4,1,1))
+  umbral <- 0
+  
+  plot(1, 1, type = "n", xlim = xlim, ylim = ylim1, xlab = NA, ylab = NA, axes  = FALSE)
+  polygon(x = c(1:xlim[2], xlim[2]:1), 
+          y = c(deciles.use.1, 
+                rev(deciles.use.1*-1)), 
+          col ="grey50", border = FALSE)
+  polygon(x = c(1:xlim[2], xlim[2]:1), 
+          y = c(deciles.use.2, rev(deciles.use.2*-1)), 
+          col ="grey70", border = FALSE)
+  
+  abline(h = seq(-3, 3, 1), v = seq(1,length(anoma.to.use.numeric), 12), lty = "dashed", col = "grey50")
+  par(new=TRUE)
+  lines(ifelse(anoma.to.use.numeric > 0, anoma.to.use.numeric, NA), type = "h", col = "red", lwd = 3)
+  lines(ifelse(anoma.to.use.numeric < 0, anoma.to.use.numeric, NA), type = "h", col = "blue", lwd = 3)
+  
+  axis(side = 1, at = seq(1,length(anoma.to.use.numeric), 12), labels = periodo_IGS[[i]], 
+       cex.axis = 1.3)
+  axis(side = 2, at = -3:3, las = 2, cex.axis = 1.3)
+  # legend("bottomleft", legend = c("Anomalía positiva", "Anomalía negativa", 
+  #                                 "Sin efecto", "Efecto moderado", "Efecto Fuerte"), 
+  #        fill = c("red", "blue", "grey70", "grey50", "white"), cex = 0.8)
+  # 
+  box()
+  
+}
+
+mtext(text = "GSI anomalies", side = 2, line = 1, cex = 1.3, outer = TRUE)
+mtext(text = "Years", side = 1, line = 1, cex = 1.3, outer = TRUE)
+
+dev.copy(png, 
+         filename = paste0("figures/Anomalia IGS 1992-2020.png"),
+         width = 3200, height = 2500, res = 300)
+dev.off()
+
+
+# Gráfico de IGS 1992 a 1998 ----------------------------------------------
+
+anoma.to.use <- matrixIGS[rownames(matrixIGS) %in% periodo_IGS[[1]],]
+anoma.to.use.numeric <- as.numeric(t(anoma.to.use))
+
+xlim <- c(1, length(anoma.to.use.numeric))
+ylim1 <- c(-3, 3)
+
+rangos_use <- rangosIGS[[1]]
+
+deciles.use.1 <- rep(rangos_use[,2], length(anoma.to.use.numeric)/12)
+deciles.use.2 <- rep(rangos_use[,1], length(anoma.to.use.numeric)/12)
+
+par(mar = c(4,4,1,1))
+umbral <- 0
+
+plot(1, 1, type = "n", xlim = xlim, ylim = ylim1, xlab = NA, ylab = NA, axes  = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.1, 
+              rev(deciles.use.1*-1)), 
+        col ="grey50", border = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.2, rev(deciles.use.2*-1)), 
+        col ="grey70", border = FALSE)
+
+abline(h = seq(-3, 3, 1), v = seq(1,length(anoma.to.use.numeric), 12), lty = "dashed", col = "grey50")
+par(new=TRUE)
+lines(ifelse(anoma.to.use.numeric > 0, anoma.to.use.numeric, NA), type = "h", col = "red", lwd = 3)
+lines(ifelse(anoma.to.use.numeric < 0, anoma.to.use.numeric, NA), type = "h", col = "blue", lwd = 3)
+
+axis(side = 1, at = seq(1,length(anoma.to.use.numeric), 12), labels = periodo_IGS[[1]], 
+     cex.axis = 1.3)
+axis(side = 2, at = -3:3, las = 2, cex.axis = 1.3)
+rect(xleft = 106.5, ybottom = -3, xright = 109.5, ytop = 3, col = "red", border = "red", density = 1)
+
+niño_debil <- IGS[which(IGS$Niño == 1),]
+
+
+# mtext(text = "Anomalía de IGS", side = 2, line = 3, cex = 1.3)
+# mtext(text = "Años", side = 1, line = 3, cex = 1.3)
+
+# legend("bottomleft", legend = c("Anomalía positiva", "Anomalía negativa", 
+#                                 "Sin efecto", "Efecto moderado", "Efecto Fuerte"), 
+#        fill = c("red", "blue", "grey70", "grey50", "white"), cex = 0.8)
+# 
+box()
+dev.copy(png, 
+         filename = paste0("figures/Anomalia IGS 1992-1998.png"),
+         width = 3200, height = 2000, res = 300)
+dev.off()
+
+# Gráfico de IGS 1999 a 2012 ----------------------------------------------
+
+anoma.to.use <- matrixIGS[rownames(matrixIGS) %in% 2006:2012,]
+anoma.to.use.numeric <- as.numeric(t(anoma.to.use))
+
+xlim <- c(1, length(anoma.to.use.numeric))
+ylim1 <- c(-3, 3)
+
+rangos_use <- rangosIGS[[2]]
+
+deciles.use.1 <- rep(rangos_use[,2], length(anoma.to.use.numeric)/12)
+deciles.use.2 <- rep(rangos_use[,1], length(anoma.to.use.numeric)/12)
+
+par(mar = c(4,4,1,1))
+umbral <- 0
+
+plot(1, 1, type = "n", xlim = xlim, ylim = ylim1, xlab = NA, ylab = NA, axes  = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.1, 
+              rev(deciles.use.1*-1)), 
+        col ="grey50", border = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.2, rev(deciles.use.2*-1)), 
+        col ="grey70", border = FALSE)
+
+abline(h = seq(-3, 3, 1), v = seq(1,length(anoma.to.use.numeric), 12), lty = "dashed", col = "grey50")
+par(new=TRUE)
+lines(ifelse(anoma.to.use.numeric > 0, anoma.to.use.numeric, NA), type = "h", col = "red", lwd = 3)
+lines(ifelse(anoma.to.use.numeric < 0, anoma.to.use.numeric, NA), type = "h", col = "blue", lwd = 3)
+
+axis(side = 1, at = seq(1,length(anoma.to.use.numeric), 12), labels = 2006:2012, 
+     cex.axis = 1.3)
+axis(side = 2, at = -3:3, las = 2, cex.axis = 1.3)
+mtext(text = "Anomalía de IGS", side = 2, line = 3, cex = 1.3)
+mtext(text = "Años", side = 1, line = 3, cex = 1.3)
+
+# legend("bottomleft", legend = c("Anomalía positiva", "Anomalía negativa", 
+#                                 "Sin efecto", "Efecto moderado", "Efecto Fuerte"), 
+#        fill = c("red", "blue", "grey70", "grey50", "white"), cex = 0.8)
+# 
+box()
+dev.copy(png, 
+         filename = paste0("figures/Anomalia IGS 2006-2012.png"),
+         width = 3200, height = 2000, res = 300)
+dev.off()
+
+# Gráfico de IGS 2013 a 2020 ----------------------------------------------
+
+anoma.to.use <- matrixIGS[rownames(matrixIGS) %in% 2017:2020,]
+anoma.to.use.numeric <- as.numeric(t(anoma.to.use))
+
+xlim <- c(1, length(anoma.to.use.numeric))
+ylim1 <- c(-3, 3)
+
+rangos_use <- rangosIGS[[3]]
+
+deciles.use.1 <- rep(rangos_use[,2], length(anoma.to.use.numeric)/12)
+deciles.use.2 <- rep(rangos_use[,1], length(anoma.to.use.numeric)/12)
+
+par(mar = c(4,4,1,1))
+umbral <- 0
+
+plot(1, 1, type = "n", xlim = xlim, ylim = ylim1, xlab = NA, ylab = NA, axes  = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.1, 
+              rev(deciles.use.1*-1)), 
+        col ="grey50", border = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.2, rev(deciles.use.2*-1)), 
+        col ="grey70", border = FALSE)
+
+abline(h = seq(-3, 3, 1), v = seq(1,length(anoma.to.use.numeric), 12), lty = "dashed", col = "grey50")
+par(new=TRUE)
+lines(ifelse(anoma.to.use.numeric > 0, anoma.to.use.numeric, NA), type = "h", col = "red", lwd = 3)
+lines(ifelse(anoma.to.use.numeric < 0, anoma.to.use.numeric, NA), type = "h", col = "blue", lwd = 3)
+
+axis(side = 1, at = seq(1,length(anoma.to.use.numeric), 12), labels = 2017:2020, 
+     cex.axis = 1.3)
+axis(side = 2, at = -3:3, las = 2, cex.axis = 1.3)
+mtext(text = "Anomalía de IGS", side = 2, line = 3, cex = 1.3)
+mtext(text = "Años", side = 1, line = 3, cex = 1.3)
+
+# legend("bottomleft", legend = c("Anomalía positiva", "Anomalía negativa", 
+#                                 "Sin efecto", "Efecto moderado", "Efecto Fuerte"), 
+#        fill = c("red", "blue", "grey70", "grey50", "white"), cex = 0.8)
+# 
+box()
+dev.copy(png, 
+         filename = paste0("figures/Anomalia IGS 2017-2020.png"),
+         width = 3200, height = 2000, res = 300)
+dev.off()
+
+
+# Niño debil --------------------------------------------------------------
+#Primer periodo
+anoma.to.use <- matrixIGS[rownames(matrixIGS) %in% c(1994,1995),]
+anoma.to.use.numeric <- as.numeric(t(anoma.to.use))
+
+xlim <- c(1, length(anoma.to.use.numeric))
+ylim1 <- c(-3, 3)
+
+rangos_use <- rangosIGS[[1]]
+
+deciles.use.1 <- rep(rangos_use[,2], length(anoma.to.use.numeric)/12)
+deciles.use.2 <- rep(rangos_use[,1], length(anoma.to.use.numeric)/12)
+
+par(mar = c(2,1,1,1), mfrow = c(3,1), oma = c(3,4.5,1,1))
+umbral <- 0
+
+plot(1, 1, type = "n", xlim = xlim, ylim = ylim1, xlab = NA, ylab = NA, axes  = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.1, 
+              rev(deciles.use.1*-1)), 
+        col ="grey50", border = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.2, rev(deciles.use.2*-1)), 
+        col ="grey70", border = FALSE)
+
+abline(h = seq(-3, 3, 1), v = seq(1,length(anoma.to.use.numeric), 12), lty = "dashed", col = "grey50")
+par(new=TRUE)
+lines(ifelse(anoma.to.use.numeric > 0, anoma.to.use.numeric, NA), type = "h", col = "red", lwd = 3)
+lines(ifelse(anoma.to.use.numeric < 0, anoma.to.use.numeric, NA), type = "h", col = "blue", lwd = 3)
+
+axis(side = 1, at = seq(1,length(anoma.to.use.numeric), 12), labels = c(1994,1995), 
+     cex.axis = 1.3)
+axis(side = 2, at = -3:3, las = 2, cex.axis = 1.3)
+box()
+
+#Segundo periodo
+anoma.to.use <- matrixIGS[rownames(matrixIGS) %in% c(2002,2006,2007,2008,2009,2012),]
+anoma.to.use.numeric <- as.numeric(t(anoma.to.use))
+
+xlim <- c(1, length(anoma.to.use.numeric))
+ylim1 <- c(-3, 3)
+
+rangos_use <- rangosIGS[[2]]
+
+deciles.use.1 <- rep(rangos_use[,2], length(anoma.to.use.numeric)/12)
+deciles.use.2 <- rep(rangos_use[,1], length(anoma.to.use.numeric)/12)
+
+umbral <- 0
+
+plot(1, 1, type = "n", xlim = xlim, ylim = ylim1, xlab = NA, ylab = NA, axes  = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.1, 
+              rev(deciles.use.1*-1)), 
+        col ="grey50", border = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.2, rev(deciles.use.2*-1)), 
+        col ="grey70", border = FALSE)
+
+abline(h = seq(-3, 3, 1), v = seq(1,length(anoma.to.use.numeric), 12), lty = "dashed", col = "grey50")
+par(new=TRUE)
+lines(ifelse(anoma.to.use.numeric > 0, anoma.to.use.numeric, NA), type = "h", col = "red", lwd = 3)
+lines(ifelse(anoma.to.use.numeric < 0, anoma.to.use.numeric, NA), type = "h", col = "blue", lwd = 3)
+
+axis(side = 1, at = seq(1,length(anoma.to.use.numeric), 12), labels = c(2002,2006,2007,2008,2009,2012), 
+     cex.axis = 1.3)
+axis(side = 2, at = -3:3, las = 2, cex.axis = 1.3)
+box()
+
+#Tercer periodo
+anoma.to.use <- matrixIGS[rownames(matrixIGS) %in% c(2014,2018,2019),]
+anoma.to.use.numeric <- as.numeric(t(anoma.to.use))
+
+xlim <- c(1, length(anoma.to.use.numeric))
+ylim1 <- c(-3, 3)
+
+rangos_use <- rangosIGS[[3]]
+
+deciles.use.1 <- rep(rangos_use[,2], length(anoma.to.use.numeric)/12)
+deciles.use.2 <- rep(rangos_use[,1], length(anoma.to.use.numeric)/12)
+
+umbral <- 0
+
+plot(1, 1, type = "n", xlim = xlim, ylim = ylim1, xlab = NA, ylab = NA, axes  = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.1, 
+              rev(deciles.use.1*-1)), 
+        col ="grey50", border = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.2, rev(deciles.use.2*-1)), 
+        col ="grey70", border = FALSE)
+
+abline(h = seq(-3, 3, 1), v = seq(1,length(anoma.to.use.numeric), 12), lty = "dashed", col = "grey50")
+par(new=TRUE)
+lines(ifelse(anoma.to.use.numeric > 0, anoma.to.use.numeric, NA), type = "h", col = "red", lwd = 3)
+lines(ifelse(anoma.to.use.numeric < 0, anoma.to.use.numeric, NA), type = "h", col = "blue", lwd = 3)
+
+axis(side = 1, at = seq(1,length(anoma.to.use.numeric), 12), labels = c(2014,2018,2019), 
+     cex.axis = 1.3)
+axis(side = 2, at = -3:3, las = 2, cex.axis = 1.3)
+box()
+
+
+mtext(text = "GSI anomalies", side = 2, line = 2.5, cex = 1.3, outer = TRUE)
+mtext(text = "Years", side = 1, line = 2, cex = 1.3, outer = TRUE)
+
+dev.copy(png, 
+         filename = paste0("figures/Anomalia IGS niño debil.png"),
+         width = 3200, height = 2500, res = 300)
+dev.off()
+
+# Niño moderado -----------------------------------------------------------
+#Primer periodo
+anoma.to.use <- matrixIGS[rownames(matrixIGS) %in% c(1993,1994),]
+anoma.to.use.numeric <- as.numeric(t(anoma.to.use))
+
+xlim <- c(1, length(anoma.to.use.numeric))
+ylim1 <- c(-3, 3)
+
+rangos_use <- rangosIGS[[1]]
+
+deciles.use.1 <- rep(rangos_use[,2], length(anoma.to.use.numeric)/12)
+deciles.use.2 <- rep(rangos_use[,1], length(anoma.to.use.numeric)/12)
+
+par(mar = c(2,1,1,1), mfrow = c(2,1), oma = c(3,4.5,1,1))
+umbral <- 0
+
+plot(1, 1, type = "n", xlim = xlim, ylim = ylim1, xlab = NA, ylab = NA, axes  = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.1, 
+              rev(deciles.use.1*-1)), 
+        col ="grey50", border = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.2, rev(deciles.use.2*-1)), 
+        col ="grey70", border = FALSE)
+
+abline(h = seq(-3, 3, 1), v = seq(1,length(anoma.to.use.numeric), 12), lty = "dashed", col = "grey50")
+par(new=TRUE)
+lines(ifelse(anoma.to.use.numeric > 0, anoma.to.use.numeric, NA), type = "h", col = "red", lwd = 3)
+lines(ifelse(anoma.to.use.numeric < 0, anoma.to.use.numeric, NA), type = "h", col = "blue", lwd = 3)
+
+axis(side = 1, at = seq(1,length(anoma.to.use.numeric), 12), labels = c(1993,1994), 
+     cex.axis = 1.3)
+axis(side = 2, at = -3:3, las = 2, cex.axis = 1.3)
+box()
+
+#Tercer periodo
+anoma.to.use <- matrixIGS[rownames(matrixIGS) %in% c(2016,2017),]
+anoma.to.use.numeric <- as.numeric(t(anoma.to.use))
+
+xlim <- c(1, length(anoma.to.use.numeric))
+ylim1 <- c(-3, 3)
+
+rangos_use <- rangosIGS[[3]]
+
+deciles.use.1 <- rep(rangos_use[,2], length(anoma.to.use.numeric)/12)
+deciles.use.2 <- rep(rangos_use[,1], length(anoma.to.use.numeric)/12)
+
+umbral <- 0
+
+plot(1, 1, type = "n", xlim = xlim, ylim = ylim1, xlab = NA, ylab = NA, axes  = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.1, 
+              rev(deciles.use.1*-1)), 
+        col ="grey50", border = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.2, rev(deciles.use.2*-1)), 
+        col ="grey70", border = FALSE)
+
+abline(h = seq(-3, 3, 1), v = seq(1,length(anoma.to.use.numeric), 12), lty = "dashed", col = "grey50")
+par(new=TRUE)
+lines(ifelse(anoma.to.use.numeric > 0, anoma.to.use.numeric, NA), type = "h", col = "red", lwd = 3)
+lines(ifelse(anoma.to.use.numeric < 0, anoma.to.use.numeric, NA), type = "h", col = "blue", lwd = 3)
+
+axis(side = 1, at = seq(1,length(anoma.to.use.numeric), 12), labels = c(2016,2017), 
+     cex.axis = 1.3)
+axis(side = 2, at = -3:3, las = 2, cex.axis = 1.3)
+box()
+
+
+mtext(text = "GSI anomalies", side = 2, line = 2.5, cex = 1.3, outer = TRUE)
+mtext(text = "Years", side = 1, line = 2, cex = 1.3, outer = TRUE)
+
+dev.copy(png, 
+         filename = paste0("figures/Anomalia IGS niño moderado.png"),
+         width = 3200, height = 2500, res = 300)
+dev.off()
+
+# Niño Fuerte -------------------------------------------------------------
+#Primer periodo
+anoma.to.use <- matrixIGS[rownames(matrixIGS) %in% c(1997,1998),]
+anoma.to.use.numeric <- as.numeric(t(anoma.to.use))
+
+xlim <- c(1, length(anoma.to.use.numeric))
+ylim1 <- c(-3, 3)
+
+rangos_use <- rangosIGS[[1]]
+
+deciles.use.1 <- rep(rangos_use[,2], length(anoma.to.use.numeric)/12)
+deciles.use.2 <- rep(rangos_use[,1], length(anoma.to.use.numeric)/12)
+
+par(mar = c(2,1,1,1), mfrow = c(2,1), oma = c(3,4.5,1,1))
+umbral <- 0
+
+plot(1, 1, type = "n", xlim = xlim, ylim = ylim1, xlab = NA, ylab = NA, axes  = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.1, 
+              rev(deciles.use.1*-1)), 
+        col ="grey50", border = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.2, rev(deciles.use.2*-1)), 
+        col ="grey70", border = FALSE)
+
+abline(h = seq(-3, 3, 1), v = seq(1,length(anoma.to.use.numeric), 12), lty = "dashed", col = "grey50")
+par(new=TRUE)
+lines(ifelse(anoma.to.use.numeric > 0, anoma.to.use.numeric, NA), type = "h", col = "red", lwd = 3)
+lines(ifelse(anoma.to.use.numeric < 0, anoma.to.use.numeric, NA), type = "h", col = "blue", lwd = 3)
+
+axis(side = 1, at = seq(1,length(anoma.to.use.numeric), 12), labels = c(1997,1998), 
+     cex.axis = 1.3)
+axis(side = 2, at = -3:3, las = 2, cex.axis = 1.3)
+box()
+
+#Tercer periodo
+anoma.to.use <- matrixIGS[rownames(matrixIGS) %in% c(2015,2016),]
+anoma.to.use.numeric <- as.numeric(t(anoma.to.use))
+
+xlim <- c(1, length(anoma.to.use.numeric))
+ylim1 <- c(-3, 3)
+
+rangos_use <- rangosIGS[[3]]
+
+deciles.use.1 <- rep(rangos_use[,2], length(anoma.to.use.numeric)/12)
+deciles.use.2 <- rep(rangos_use[,1], length(anoma.to.use.numeric)/12)
+
+umbral <- 0
+
+plot(1, 1, type = "n", xlim = xlim, ylim = ylim1, xlab = NA, ylab = NA, axes  = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.1, 
+              rev(deciles.use.1*-1)), 
+        col ="grey50", border = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.2, rev(deciles.use.2*-1)), 
+        col ="grey70", border = FALSE)
+
+abline(h = seq(-3, 3, 1), v = seq(1,length(anoma.to.use.numeric), 12), lty = "dashed", col = "grey50")
+par(new=TRUE)
+lines(ifelse(anoma.to.use.numeric > 0, anoma.to.use.numeric, NA), type = "h", col = "red", lwd = 3)
+lines(ifelse(anoma.to.use.numeric < 0, anoma.to.use.numeric, NA), type = "h", col = "blue", lwd = 3)
+
+axis(side = 1, at = seq(1,length(anoma.to.use.numeric), 12), labels = c(2015,2016), 
+     cex.axis = 1.3)
+axis(side = 2, at = -3:3, las = 2, cex.axis = 1.3)
+box()
+
+legend("bottomleft", legend = c("Positive anomaly", "Negative anomaly",
+                                "Without effect", "Moderate effect", "Strong effect"),
+       fill = c("red", "blue", "grey70", "grey50", "white"), cex = 0.8)
+
+mtext(text = "GSI anomalies", side = 2, line = 2.5, cex = 1.3, outer = TRUE)
+mtext(text = "Years", side = 1, line = 2, cex = 1.3, outer = TRUE)
+
+dev.copy(png, 
+         filename = paste0("figures/Anomalia IGS niño fuerte.png"),
+         width = 3200, height = 2500, res = 300)
+dev.off()
+
+
+
+# Niña debil --------------------------------------------------------------
+# Niña moderada -----------------------------------------------------------
+#Primer periodo
+anoma.to.use <- matrixIGS[rownames(matrixIGS) %in% c(1996,1997),]
+anoma.to.use.numeric <- as.numeric(t(anoma.to.use))
+
+xlim <- c(1, length(anoma.to.use.numeric))
+ylim1 <- c(-3, 3)
+
+rangos_use <- rangosIGS[[1]]
+
+deciles.use.1 <- rep(rangos_use[,2], length(anoma.to.use.numeric)/12)
+deciles.use.2 <- rep(rangos_use[,1], length(anoma.to.use.numeric)/12)
+
+par(mar = c(2,1,1,1), mfrow = c(2,1), oma = c(3,4.5,1,1))
+umbral <- 0
+
+plot(1, 1, type = "n", xlim = xlim, ylim = ylim1, xlab = NA, ylab = NA, axes  = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.1, 
+              rev(deciles.use.1*-1)), 
+        col ="grey50", border = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.2, rev(deciles.use.2*-1)), 
+        col ="grey70", border = FALSE)
+
+abline(h = seq(-3, 3, 1), v = seq(1,length(anoma.to.use.numeric), 12), lty = "dashed", col = "grey50")
+par(new=TRUE)
+lines(ifelse(anoma.to.use.numeric > 0, anoma.to.use.numeric, NA), type = "h", col = "red", lwd = 3)
+lines(ifelse(anoma.to.use.numeric < 0, anoma.to.use.numeric, NA), type = "h", col = "blue", lwd = 3)
+
+axis(side = 1, at = seq(1,length(anoma.to.use.numeric), 12), labels = c(1996,1997), 
+     cex.axis = 1.3)
+axis(side = 2, at = -3:3, las = 2, cex.axis = 1.3)
+box()
+
+#Segundo periodo
+anoma.to.use <- matrixIGS[rownames(matrixIGS) %in% c(2007,2008,2010,2011),]
+anoma.to.use.numeric <- as.numeric(t(anoma.to.use))
+
+xlim <- c(1, length(anoma.to.use.numeric))
+ylim1 <- c(-3, 3)
+
+rangos_use <- rangosIGS[[2]]
+
+deciles.use.1 <- rep(rangos_use[,2], length(anoma.to.use.numeric)/12)
+deciles.use.2 <- rep(rangos_use[,1], length(anoma.to.use.numeric)/12)
+
+umbral <- 0
+
+plot(1, 1, type = "n", xlim = xlim, ylim = ylim1, xlab = NA, ylab = NA, axes  = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.1, 
+              rev(deciles.use.1*-1)), 
+        col ="grey50", border = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.2, rev(deciles.use.2*-1)), 
+        col ="grey70", border = FALSE)
+
+abline(h = seq(-3, 3, 1), v = seq(1,length(anoma.to.use.numeric), 12), lty = "dashed", col = "grey50")
+par(new=TRUE)
+lines(ifelse(anoma.to.use.numeric > 0, anoma.to.use.numeric, NA), type = "h", col = "red", lwd = 3)
+lines(ifelse(anoma.to.use.numeric < 0, anoma.to.use.numeric, NA), type = "h", col = "blue", lwd = 3)
+
+axis(side = 1, at = seq(1,length(anoma.to.use.numeric), 12), labels = c(2007,2008,2010,2011), 
+     cex.axis = 1.3)
+axis(side = 2, at = -3:3, las = 2, cex.axis = 1.3)
+box()
+
+mtext(text = "GSI anomalies", side = 2, line = 2.5, cex = 1.3, outer = TRUE)
+mtext(text = "Years", side = 1, line = 2, cex = 1.3, outer = TRUE)
+
+dev.copy(png, 
+         filename = paste0("figures/Anomalia IGS niña moderada.png"),
+         width = 3200, height = 2500, res = 300)
+dev.off()
+
+
+
+
+
+# Niña fuerte -------------------------------------------------------------
+#Tercer periodo
+anoma.to.use <- matrixIGS[rownames(matrixIGS) %in% c(2013,2014),]
+anoma.to.use.numeric <- as.numeric(t(anoma.to.use))
+
+xlim <- c(1, length(anoma.to.use.numeric))
+ylim1 <- c(-3, 3)
+
+rangos_use <- rangosIGS[[3]]
+
+deciles.use.1 <- rep(rangos_use[,2], length(anoma.to.use.numeric)/12)
+deciles.use.2 <- rep(rangos_use[,1], length(anoma.to.use.numeric)/12)
+
+par(mar = c(3,4.5,1,1))
+umbral <- 0
+
+plot(1, 1, type = "n", xlim = xlim, ylim = ylim1, xlab = NA, ylab = NA, axes  = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.1, 
+              rev(deciles.use.1*-1)), 
+        col ="grey50", border = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.2, rev(deciles.use.2*-1)), 
+        col ="grey70", border = FALSE)
+
+abline(h = seq(-3, 3, 1), v = seq(1,length(anoma.to.use.numeric), 12), lty = "dashed", col = "grey50")
+par(new=TRUE)
+lines(ifelse(anoma.to.use.numeric > 0, anoma.to.use.numeric, NA), type = "h", col = "red", lwd = 3)
+lines(ifelse(anoma.to.use.numeric < 0, anoma.to.use.numeric, NA), type = "h", col = "blue", lwd = 3)
+
+axis(side = 1, at = seq(1,length(anoma.to.use.numeric), 12), labels = c(2013,2014), 
+     cex.axis = 1.3)
+axis(side = 2, at = -3:3, las = 2, cex.axis = 1.3)
+box()
+
+mtext(text = "GSI anomalies", side = 2, line = 2.5, cex = 1.3)
+mtext(text = "Years", side = 1, line = 2, cex = 1.3)
+
+dev.copy(png, 
+         filename = paste0("figures/Anomalia IGS niña fuerte.png"),
+         width = 3200, height = 2500, res = 300)
+dev.off()
+
+

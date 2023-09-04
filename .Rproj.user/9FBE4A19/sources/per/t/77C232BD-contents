@@ -1,0 +1,99 @@
+
+# FC ----------------------------------------------------------------------
+data_FCquincenal <- read.csv(file = "data/FC quincenal ene22_mar23.csv", stringsAsFactors = FALSE,
+                             sep = ";")
+patronesFC <- read.csv(file = "data/patrones FC.csv", stringsAsFactors = FALSE, row.names = 1)
+
+meses <- 1:12
+
+patronquincenal <- NULL
+
+for (i in meses) {
+  patronFC_quincena <- rep(patronesFC[3,i],2)
+  
+  patronquincenal <- c(patronquincenal, patronFC_quincena)
+  
+}
+
+
+patronquincenal_FC <- rep(patronquincenal, length(sort(unique(data_FCquincenal$year))))
+
+STFC_quincenal <- ts(data = data_FCquincenal$FC, start = 2022, frequency = 24) 
+
+STpatronFCquincenal <- ts(data = (patronquincenal_FC), start = 2022, frequency = 24)
+
+AFC_quincenal <- round(STFC_quincenal- STpatronFCquincenal, 4)
+
+matrix_AFC_quincenal <- matrix(data = AFC_quincenal, nrow = length(sort(unique(data_FCquincenal$year))), 
+                                ncol = 24, byrow = TRUE)
+
+dimnames(matrix_AFC_quincenal) <- list(sort(unique(data_FCquincenal$year)), data_FCquincenal$month[1:24])
+
+write.csv(x = matrix_AFC_quincenal, file = "output/AFC quincenal ene 22 a jun 23.csv")
+# Rangos ------------------------------------------------------------------
+#rangos son extraidos del code Anomalias FC_Final
+rangoFC_quincena <- NULL
+
+for (i in meses) {
+  rangosFC_quincenca_decilcinco <- rep(rangosFC[[3]][i,1],2)
+  rangosFC_quincenca_decilnueve <- rep(rangosFC[[3]][i,2],2)
+  
+  rangoFC_quincena <- rbind(rangoFC_quincena, cbind(rangosFC_quincenca_decilcinco, rangosFC_quincenca_decilnueve))
+}
+
+colnames(rangoFC_quincena) <- c("decil5", "decil9")
+
+# Grafico AFC quincena ----------------------------------------------------
+
+#AFC 2022 - 2023 quincena
+anoma.to.use <- matrix_AFC_quincenal[rownames(matrix_AFC_quincenal) %in% c(2022:2023),]
+anoma.to.use.numeric <- c(NA, NA, as.numeric(t(anoma.to.use)))
+labelsAFC <- c(NA, NA, data_FCquincenal$Labels.2[1:42])
+
+xlim <- c(1, 44)
+ylim1 <- c(-0.15, 0.15)
+
+deciles.use.1 <- c(rangoFC_quincena[23:24,2], rep(rangoFC_quincena[,2], 2, length.out = xlim[2]-2))
+deciles.use.2 <- c(rangoFC_quincena[23:24,1], rep(rangoFC_quincena[,1], 2, length.out = xlim[2]-2))
+
+par(mar = c(4,4,1,1), xaxs = "i")
+umbral <- 0
+
+plot(1, 1, type = "n", xlim = xlim, ylim = ylim1, xlab = NA, ylab = NA, axes  = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.1, 
+              rev(deciles.use.1*-1)), 
+        col ="grey50", border = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), 
+        y = c(deciles.use.2, rev(deciles.use.2*-1)), 
+        col ="grey70", border = FALSE)
+
+abline(h = seq(-0.15,0.15,0.05), v = c(3, 27), lty = "dashed", col = "grey50")
+par(new = TRUE)
+lines(ifelse(anoma.to.use.numeric > 0, anoma.to.use.numeric, NA), type = "h", col = "blue", lwd = 3)
+lines(ifelse(anoma.to.use.numeric < 0, anoma.to.use.numeric, NA), type = "h", col = "red", lwd = 3)
+
+axis(side = 1, at = 3:42, labels = labelsAFC[3:42], cex.axis = 1, las = 1)
+axis(side = 2, at = round(seq(-0.15,0.15,0.05),2), las = 2, cex.axis = 1)
+mtext(text = "AFC", side = 2, line = 3, cex = 1.3)
+mtext(text = "Meses", side = 1, line = 3, cex = 1.3)
+legend(x = 1, y = -0.1, legend = c("Anomalía positiva", "Anomalía negativa"), 
+       fill = c("blue", "red"), cex = 0.8, bty = "n")
+legend(x = 10, y = -0.1, legend = c("Sin efecto", "Efecto moderado", "Efecto Fuerte"), 
+       fill = c("grey70", "grey50", "white"), cex = 0.8, bty = "n")
+
+box()
+
+
+dev.copy(png, 
+         filename = paste0("figures/AFC quincenal/Anomalia FC quincenal 2022-2023 jun_4.png"),
+         width = 3000, height = 1500, res = 300)
+dev.off()
+
+
+
+
+
+
+
+

@@ -1,0 +1,26 @@
+{
+    "id": "0DDB76F0",
+    "path": "C:/Users/acuba-0283/OneDrive/Proyectos R/Anomalias seguimiento/codes/Anomalias FD_final.R",
+    "project_path": "codes/Anomalias FD_final.R",
+    "type": "r_source",
+    "hash": "2373504171",
+    "contents": "",
+    "dirty": false,
+    "created": 1641935292663.0,
+    "source_on_save": false,
+    "relative_order": 1,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "223,12",
+        "scrollLine": "198"
+    },
+    "folds": "60|9|64|0|\n65|13|168|0|\n226|26|271|2|\n272|26|317|2|\n318|26|363|2|\n364|13|476|0|\n477|16|556|2|\n557|14|636|2|\n637|13|715|2|\n716|16|794|0|\n795|14|838|2|\n",
+    "lastKnownWriteTime": 1663839134,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1663839134810,
+    "read_only": false,
+    "read_only_alternatives": []
+}

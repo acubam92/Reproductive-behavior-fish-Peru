@@ -1,0 +1,27 @@
+{
+    "id": "47A8746F",
+    "path": "C:/Users/acuba-0283/OneDrive/Proyectos R/Anomalias seguimiento/codes/Anomalias IGS_final.R",
+    "project_path": "codes/Anomalias IGS_final.R",
+    "type": "r_source",
+    "hash": "3836353923",
+    "contents": "",
+    "dirty": false,
+    "created": 1641938703701.0,
+    "source_on_save": false,
+    "relative_order": 2,
+    "properties": {
+        "tempName": "Untitled1",
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "259,10",
+        "scrollLine": "61"
+    },
+    "folds": "1|5|34|0|\n35|12|59|0|\n60|9|64|0|\n65|13|167|0|\n168|24|223|0|\n224|29|274|0|\n275|29|320|0|\n321|29|367|0|\n368|13|477|0|\n478|16|554|0|\n555|14|636|0|\n637|13|637|75|\n638|16|717|0|\n718|14|762|0|\n",
+    "lastKnownWriteTime": 1663834462,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1663834465725,
+    "read_only": false,
+    "read_only_alternatives": []
+}

@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1598570716301.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3114336191",
+    "id" : "BEAB89F1",
+    "lastKnownWriteTime" : 1598571216,
+    "last_content_update" : 1598571216411,
+    "path" : "C:/Users/acuba/OneDrive/Proyectos R/Anomalias seguimiento/codes/Anomalias temperatura.R",
+    "project_path" : "codes/Anomalias temperatura.R",
+    "properties" : {
+        "cursorPosition" : "30,0",
+        "scrollLine" : "0",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 3,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

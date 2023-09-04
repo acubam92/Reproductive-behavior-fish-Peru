@@ -1,0 +1,148 @@
+
+# IGS ---------------------------------------------------------------------
+
+#Anomalia por periodo interanual 86-95 96-09 y 10-17
+IGS <- read.csv(file = "Data/IGS.csv", stringsAsFactors = FALSE, sep = ";")
+
+IGS8695 <- IGS[IGS$year < 1996,]
+IGpatron8695 <- tapply(IGS8695$igs, list(IGS8695$month), mean, na.rm = TRUE)
+patronigs8695 <- rep(IGpatron8695, length(sort(unique(IGS8695$year))))
+
+IGS9609 <- IGS[IGS$year > 1995 & IGS$year < 2010,]
+IGSpatron9609 <- tapply(IGS9609$igs, list(IGS9609$month), mean, na.rm = TRUE)
+patronigs9609 <- rep(IGSpatron9609, length(sort(unique(IGS9609$year))))
+
+IGS1017 <- IGS[IGS$year > 2009 & IGS$year < 2018,]
+IGSpatron1017 <- tapply(IGS1017$igs, list(IGS1017$month), mean, na.rm = TRUE)
+IGS1020 <- IGS[IGS$year > 2009,]
+patronigs1017 <- rep(IGSpatron1017, (length(sort(unique(IGS1020$year)))))
+
+STIGS <- ts(data = IGS$igs, start = 1986, frequency = 12)
+
+patronesIGS <- c(as.numeric(patronigs8695), as.numeric(patronigs9609), as.numeric(patronigs1017))
+patronesIGS2 <- patronesIGS[1:length(IGS$igs)]
+STpatronesIGS <- ts(data = patronesIGS2, start = 1986, frequency = 12)
+
+anomaliasIGS <- round((STIGS - STpatronesIGS), 2)
+
+years <- sort(unique(IGS$year))
+matrixIGS <- matrix(data = c(as.numeric(anomaliasIGS), rep(NA, length(patronesIGS) - length(STIGS))), 
+                    nrow = length(years), ncol = 12, byrow = TRUE)
+
+dimnames(matrixIGS) <- list(sort(unique(IGS$year)), month.abb)
+
+# Rangos IGS------------------------------------------------------------------
+
+matrixIGSrango <- matrixIGS[1:32,]
+
+decilesprueba <- NULL
+
+for(i in seq_along(colnames(matrixIGSrango))){
+  anoIGS8617 <- matrixIGSrango[,i]
+  anomaliaigs <- as.data.frame(abs(anoIGS8617))
+  rangoFD <- round(quantile(anomaliaigs$`abs(anoIGS8617)`, probs = c(0.4, 0.8), na.rm = TRUE),1)
+  
+  decilesprueba <- rbind(decilesprueba, rangoFD)
+  
+}
+
+row.names(decilesprueba) <- month.abb
+write.csv(x = decilesprueba, file = "output/deciles IGS_antiguos.csv")
+# Fechas ------------------------------------------------------------------
+
+fecha <- read.csv(file = "data/fecha.csv", stringsAsFactors = FALSE, sep = ";")
+fecha <- fecha[fecha$year > 2019,]
+
+# Grafico IGS --------------------------------------------------------------
+#IGS 2010 - 2020
+mes.actual <- 8 #colocar mes del año
+meses.year <- 12 - mes.actual 
+length.xlim <- length(matrixIGS[rownames(matrixIGS) %in% c(2011:2021),])- meses.year
+anoma.to.use.IGS <- matrixIGS[rownames(matrixIGS) %in% c(2011:2021),]
+anoma.to.use.numeric.IGS <- as.numeric(t(anoma.to.use.IGS))
+anoma.to.use.numeric <- anoma.to.use.numeric.IGS[1:length.xlim]
+
+xlim <- c(1, length.xlim)
+ylim1 <- c(-3, 3)
+
+repe <- trunc(length.xlim/12)
+
+deciles.use.1 <- c(rep(decilesprueba[,2], repe),decilesprueba[,2][1:mes.actual])
+deciles.use.2 <- c(rep(decilesprueba[,1], repe),decilesprueba[,1][1:mes.actual])
+
+par(mar = c(4,4,1,1))
+umbral <- 0
+
+plot(1, 1, type = "n", xlim = xlim, ylim = ylim1, xlab = NA, ylab = NA, axes  = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), y = c(deciles.use.1, rev(deciles.use.1*-1)), 
+        col ="grey50", border = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), y = c(rep(deciles.use.2), rev(deciles.use.2*-1)), 
+        col ="grey70", border = FALSE)
+
+abline(h = seq(-3, 3, 1), v = seq(1,length.xlim, 12), lty = "dashed", col = "grey50")
+par(new=TRUE)
+lines(ifelse(anoma.to.use.numeric.IGS > 0, anoma.to.use.numeric.IGS, NA), type = "h", col = "red", lwd = 3)
+lines(ifelse(anoma.to.use.numeric.IGS < 0, anoma.to.use.numeric.IGS, NA), type = "h", 
+      col = "blue", lwd = 3)
+
+axis(side = 1, at = seq(1,xlim[2]+12, 12), labels = c(2011:2022), cex.axis = 1.3)
+axis(side = 2, at = seq(-3, 3, 1), las = 2, cex.axis = 1.3)
+mtext(text = "Anomalía de IGS", side = 2, line = 2.5, cex = 1.3)
+mtext(text = "Años", side = 1, line = 2.5, cex = 1.3)
+legend("bottomleft", legend = c("Anomalía positiva", "Anomalía negativa", 
+                                "Sin efecto", "Efecto moderado", "Efecto Fuerte"), 
+       fill = c("red", "blue", "grey70", "grey50", "white"), cex = 0.8)
+
+box()
+
+dev.copy(png, 
+         filename = paste0("figures/Anomalia IGS.png"),
+         width = 2500, height = 1500, res = 300)
+dev.off()
+
+
+#IGS 2020 - 2021
+mes.actual <- 8 #colocar mes del año
+meses.year <- 12 - mes.actual 
+length.xlim <- length(matrixIGS[rownames(matrixIGS) %in% c(2020:2021),])- meses.year
+anoma.to.use.IGS <- matrixIGS[rownames(matrixIGS) %in% c(2020:2021),]
+anoma.to.use.numeric.IGS <- as.numeric(t(anoma.to.use.IGS))
+anoma.to.use.numeric <- anoma.to.use.numeric.IGS[1:length.xlim]
+
+xlim <- c(1, length.xlim)
+ylim1 <- c(-3, 3)
+
+repe <- trunc(length.xlim/12)
+
+deciles.use.1 <- c(rep(decilesprueba[,2], repe),decilesprueba[,2][1:mes.actual])
+deciles.use.2 <- c(rep(decilesprueba[,1], repe),decilesprueba[,1][1:mes.actual])
+
+par(mar = c(4,4,1,1))
+umbral <- 0
+
+plot(1, 1, type = "n", xlim = xlim, ylim = ylim1, xlab = NA, ylab = NA, axes  = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), y = c(deciles.use.1, rev(deciles.use.1*-1)), 
+        col ="grey50", border = FALSE)
+polygon(x = c(1:xlim[2], xlim[2]:1), y = c(rep(deciles.use.2), rev(deciles.use.2*-1)), 
+        col ="grey70", border = FALSE)
+
+abline(h = seq(-3, 3, 1), v = seq(1,length.xlim, 12), lty = "dashed", col = "grey50")
+par(new=TRUE)
+lines(ifelse(anoma.to.use.numeric.IGS > 0, anoma.to.use.numeric.IGS, NA), type = "h", col = "red", lwd = 3)
+lines(ifelse(anoma.to.use.numeric.IGS < 0, anoma.to.use.numeric.IGS, NA), type = "h", 
+      col = "blue", lwd = 3)
+
+axis(side = 1, at = 1:length.xlim, labels = fecha$label, cex.axis = 1.3)
+axis(side = 2, at = seq(-3, 3, 1), las = 2, cex.axis = 1.3)
+mtext(text = "Anomalía de IGS", side = 2, line = 2.5, cex = 1.3)
+mtext(text = "Meses", side = 1, line = 2.5, cex = 1.3)
+legend("bottomleft", legend = c("Anomalía positiva", "Anomalía negativa", 
+                                "Sin efecto", "Efecto moderado", "Efecto Fuerte"), 
+       fill = c("red", "blue", "grey70", "grey50", "white"), cex = 0.8)
+
+box()
+
+dev.copy(png, 
+         filename = paste0("figures/Anomalia IGS 2019-2021.png"),
+         width = 3200, height = 2000, res = 300)
+dev.off()
